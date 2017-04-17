@@ -4,16 +4,6 @@ RSpec.describe EventSourcery::Redis::EventStore do
   subject(:event_store) { described_class.new(redis) }
   let(:aggregate_id) { SecureRandom.uuid }
 
-  def new_event(aggregate_id: SecureRandom.uuid, type: 'test_event', body: {}, id: nil, version: 1, created_at: nil, uuid: SecureRandom.uuid)
-    EventSourcery::Event.new(id: id,
-                             aggregate_id: aggregate_id,
-                             type: type,
-                             body: body,
-                             version: version,
-                             created_at: created_at,
-                             uuid: uuid)
-  end
-
   describe '#sink' do
     it 'assigns auto incrementing event IDs' do
       event_store.sink(new_event)
