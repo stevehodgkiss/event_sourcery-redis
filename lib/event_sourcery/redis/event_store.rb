@@ -12,8 +12,10 @@ module EventSourcery
         local id = tonumber(redis.call('hlen', 'events')) + 1
         local event = ARGV[i]
         local decoded_event = cjson.decode(event)
+        local version = redis.call('incrby', 'aggregate_versions_' .. decoded_event['aggregate_id'], 1)
+        decoded_event['version'] = version
         redis.call('rpush', 'aggregate_' .. decoded_event['aggregate_id'], id)
-        redis.call('hset', 'events', id, event)
+        redis.call('hset', 'events', id, cjson.encode(decoded_event))
         redis.call('hset', 'latest_event_id_for_type', decoded_event['type'], id)
         redis.call('set', 'latest_event_id', id)
         redis.call('publish', 'new_event', id)
@@ -30,6 +32,9 @@ module EventSourcery
 
       def sink(event_or_events)
         events = Array(event_or_events)
+        aggregate_ids = events.map(&:aggregate_id).uniq
+        raise AtomicWriteToMultipleAggregatesNotSupported unless aggregate_ids.count == 1
+        redis.watch("aggregate_versions_#{events.last[:aggregate_id]}")
         events_s = events.map do |event|
           event = {
             uuid: event.uuid,

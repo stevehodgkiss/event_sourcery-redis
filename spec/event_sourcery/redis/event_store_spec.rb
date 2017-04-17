@@ -1,5 +1,5 @@
 RSpec.describe EventSourcery::Redis::EventStore do
-  let(:supports_versions) { false }
+  let(:supports_versions) { true }
   let(:redis) { $redis }
   subject(:event_store) { described_class.new(new_redis_connection) }
   let(:aggregate_id) { SecureRandom.uuid }
