@@ -12,10 +12,9 @@ gem 'event_sourcery-redis'
 
 Configure:
 
-```
+```ruby
 require 'event_sourcery/redis'
 redis = Redis.new(port: ENV['BOXEN_REDIS_PORT'] || 6379)
-pub_sub_poll_waiter = EventSourcery::Redis::PubSubPollWaiter.new(redis)
 event_store = EventSourcery::Redis::EventStore.new(redis)
 tracker = EventSourcery::Redis::Tracker.new(redis)
 
@@ -28,7 +27,7 @@ end
 
 Projectors:
 
-```
+```ruby
 class ItemsProjector
   include EventSourcery::EventProcessing::EventStreamProcessor
 
