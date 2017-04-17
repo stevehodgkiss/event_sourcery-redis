@@ -16,9 +16,11 @@ Configure:
 require 'event_sourcery/redis'
 redis = Redis.new(port: ENV['BOXEN_REDIS_PORT'] || 6379)
 event_store = EventSourcery::Redis::EventStore.new(redis)
+tracker = EventSourcery::Redis::Tracker.new(redis)
 
 # Configure EventSourcery to use this store by default
 EventSourcery.configure do |config|
   config.event_store = event_store
+  config.event_tracker = tracker
 end
 ```
