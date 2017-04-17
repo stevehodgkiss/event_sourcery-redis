@@ -24,3 +24,24 @@ EventSourcery.configure do |config|
   config.event_tracker = tracker
 end
 ```
+
+Projectors:
+
+```
+class ItemsProjector
+  include EventSourcery::EventProcessing::EventStreamProcessor
+
+  def initializer(tracker, redis)
+    @tracker = tracker
+    @redis = redis
+  end
+
+  process ItemAdded do |event|
+    redis.push('item_names', event.body.fetch('name'))
+  end
+
+  private
+
+  attr_reader :redis
+end
+```
