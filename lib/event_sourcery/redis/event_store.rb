@@ -16,6 +16,7 @@ module EventSourcery
         redis.call('hset', 'events', id, event)
         redis.call('hset', 'latest_event_id_for_type', decoded_event['type'], id)
         redis.call('set', 'latest_event_id', id)
+        redis.call('publish', 'new_event', id)
       end
       return 1
       EOS
