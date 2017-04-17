@@ -228,4 +228,21 @@ RSpec.describe EventSourcery::Redis::EventStore do
       end
     end
   end
+
+  describe '#subscribe' do
+    let(:aggregate_id) { SecureRandom.uuid }
+    let(:event) { new_event(aggregate_id: aggregate_id) }
+    let(:subscription_master) { spy(EventSourcery::EventStore::SignalHandlingSubscriptionMaster) }
+
+    it 'notifies of new events' do
+      event_store.sink(event)
+      event_store.subscribe(from_id: 1,
+                            subscription_master: subscription_master) do |events|
+        @events = events
+        throw :stop
+      end
+      expect(@events.count).to eq 1
+      expect(@events.first.aggregate_id).to eq aggregate_id
+    end
+  end
 end

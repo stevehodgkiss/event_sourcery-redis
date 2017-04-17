@@ -77,6 +77,21 @@ module EventSourcery
         end
       end
 
+      def subscribe(from_id:, event_types: nil, after_listen: nil, subscription_master:, &block)
+        poll_waiter = ::EventSourcery::EventStore::PollWaiter.new
+        args = {
+          poll_waiter: poll_waiter,
+          event_store: self,
+          from_event_id: from_id,
+          event_types: event_types,
+          subscription_master: subscription_master,
+          on_new_events: block
+        }
+        EventSourcery::EventStore::Subscription.new(args).tap do |s|
+          s.start
+        end
+      end
+
       private
 
       attr_reader :redis, :event_builder
