@@ -1,15 +1,16 @@
 module EventSourcery
   module Redis
     class PubSubPollWaiter
-      def initialize(redis)
+      def initialize(redis, on_subscribe: proc {})
         @redis = redis
+        @on_subscribe = on_subscribe
       end
 
-      def poll(on_subscribe: proc {}, &block)
+      def poll(&block)
         catch(:stop) do
-          redis.subscribe('new_event') do |on|
+          @redis.subscribe('new_event') do |on|
             on.subscribe do |_, _|
-              on_subscribe.call
+              @on_subscribe.call
             end
             on.message do |channel, message|
               block.call
@@ -18,9 +19,8 @@ module EventSourcery
         end
       end
 
-      private
-
-      attr_reader :redis
+      def shutdown!
+      end
     end
   end
 end

@@ -1,7 +1,7 @@
 RSpec.describe EventSourcery::Redis::EventStore do
   let(:supports_versions) { false }
   let(:redis) { $redis }
-  subject(:event_store) { described_class.new(redis) }
+  subject(:event_store) { described_class.new(new_redis_connection) }
   let(:aggregate_id) { SecureRandom.uuid }
 
   describe '#sink' do
@@ -225,8 +225,8 @@ RSpec.describe EventSourcery::Redis::EventStore do
     let(:subscription_master) { spy(EventSourcery::EventStore::SignalHandlingSubscriptionMaster) }
 
     it 'notifies of new events' do
-      event_store.sink(event)
       event_store.subscribe(from_id: 1,
+                            on_subscribe: proc { EventSourcery::Redis::EventStore.new(new_redis_connection).sink(event); puts "HI" },
                             subscription_master: subscription_master) do |events|
         @events = events
         throw :stop

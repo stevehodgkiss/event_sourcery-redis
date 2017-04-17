@@ -78,8 +78,8 @@ module EventSourcery
         end
       end
 
-      def subscribe(from_id:, event_types: nil, after_listen: nil, subscription_master:, &block)
-        poll_waiter = ::EventSourcery::EventStore::PollWaiter.new
+      def subscribe(from_id:, event_types: nil, on_subscribe: nil, subscription_master:, &block)
+        poll_waiter = PubSubPollWaiter.new(redis.dup, on_subscribe: on_subscribe)
         args = {
           poll_waiter: poll_waiter,
           event_store: self,
