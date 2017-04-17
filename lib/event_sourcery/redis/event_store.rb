@@ -9,11 +9,17 @@ module EventSourcery
       local events = unpack(ARGV)
 
       for i=1, #ARGV do
+        // since Redis is single threaded, only one of this function will be
+        // executing at any given time, if that wasn't the case there would be a
+        // race condition where events would get overwritten.
         local id = tonumber(redis.call('hlen', 'events')) + 1
+
         local event = ARGV[i]
         local decoded_event = cjson.decode(event)
+
         local version = redis.call('incrby', 'aggregate_versions_' .. decoded_event['aggregate_id'], 1)
         decoded_event['version'] = version
+
         redis.call('rpush', 'aggregate_' .. decoded_event['aggregate_id'], id)
         redis.call('hset', 'events', id, cjson.encode(decoded_event))
         redis.call('hset', 'latest_event_id_for_type', decoded_event['type'], id)
