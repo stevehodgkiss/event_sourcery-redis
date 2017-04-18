@@ -49,7 +49,6 @@ module EventSourcery
         events = Array(event_or_events)
         aggregate_ids = events.map(&:aggregate_id).uniq
         raise AtomicWriteToMultipleAggregatesNotSupported unless aggregate_ids.count == 1
-        redis.watch("aggregate_versions_#{events.last[:aggregate_id]}")
         events_s = events.map do |event|
           event = {
             uuid: event.uuid,
