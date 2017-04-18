@@ -1,8 +1,8 @@
 # ❯ be ruby script/bench_writing_events.rb
 # Warming up --------------------------------------
-#    redis event store   186.000  i/100ms
+#    redis event store   284.000  i/100ms
 # Calculating -------------------------------------
-#    redis event store      1.098k (±17.6%) i/s -      5.394k in   5.060804s
+#    redis event store      2.865k (± 3.1%) i/s -     14.484k in   5.060905s
 # ^ MacBook Pro results
 
 require 'benchmark/ips'
