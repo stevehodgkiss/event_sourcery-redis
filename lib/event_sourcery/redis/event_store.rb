@@ -23,8 +23,6 @@ module EventSourcery
         if expected_version ~= nil and current_version ~= expected_version then
           return_value = 0
         end
-        redis.call('set', 'current_version', current_version)
-        redis.call('set', 'expected_version', expected_version)
 
         local version = redis.call('incrby', 'aggregate_versions_' .. decoded_event['aggregate_id'], 1)
         decoded_event['version'] = version
