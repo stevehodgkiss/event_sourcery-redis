@@ -226,13 +226,106 @@ RSpec.describe EventSourcery::Redis::EventStore do
 
     it 'notifies of new events' do
       event_store.subscribe(from_id: 1,
-                            on_subscribe: proc { EventSourcery::Redis::EventStore.new(new_redis_connection).sink(event); puts "HI" },
+                            on_subscribe: proc { EventSourcery::Redis::EventStore.new(new_redis_connection).sink(event) },
                             subscription_master: subscription_master) do |events|
         @events = events
         throw :stop
       end
       expect(@events.count).to eq 1
       expect(@events.first.aggregate_id).to eq aggregate_id
+    end
+  end
+
+  context 'optimistic concurrency control' do
+    def save_event(expected_version: nil)
+      event_store.sink(new_event(aggregate_id: aggregate_id,
+                       type: :billing_details_provided,
+                       body: { my_event: 'data' }),
+                       expected_version: expected_version)
+    end
+
+    def add_event
+      event_store.sink(new_event(aggregate_id: aggregate_id))
+    end
+
+    def last_event
+      event_store.get_next_from(1).last
+    end
+
+    def aggregate_version
+      $redis.get("aggregate_versions_#{aggregate_id}").to_i
+    end
+
+    context "when the aggregate doesn't exist" do
+      context 'and the expected version is correct - 0' do
+        it 'saves the event with and sets the aggregate version to version 1' do
+          save_event(expected_version: 0)
+          expect(last_event[:version]).to eq 1
+          expect(aggregate_version).to eq 1
+        end
+      end
+
+      context 'and the expected version is incorrect - 1' do
+        it 'raises a ConcurrencyError' do
+          expect {
+            save_event(expected_version: 1)
+          }.to raise_error(EventSourcery::ConcurrencyError)
+        end
+      end
+
+      context 'with no expected version' do
+        it 'saves the event with and sets the aggregate version to version 1' do
+          save_event
+          expect(last_event[:version]).to eq 1
+          expect(aggregate_version).to eq 1
+        end
+      end
+    end
+
+    context 'when the aggregate exists' do
+      before do
+        add_event
+      end
+
+      context 'with an incorrect expected version - 0' do
+        it 'raises a ConcurrencyError' do
+          expect {
+            save_event(expected_version: 0)
+          }.to raise_error(EventSourcery::ConcurrencyError)
+        end
+      end
+
+      context 'with a correct expected version - 1' do
+        it 'saves the event with and sets the aggregate version to version 2' do
+          save_event
+          expect(last_event[:version]).to eq 2
+          expect(aggregate_version).to eq 2
+        end
+      end
+
+      context 'with no aggregate version' do
+        it 'automatically sets the version on the event and aggregate' do
+          save_event
+          expect(last_event[:version]).to eq 2
+          expect(aggregate_version).to eq 2
+        end
+      end
+    end
+
+    it 'allows overriding the created_at timestamp for events' do
+      time = Time.parse('2016-10-14T00:00:00.646191Z')
+      event_store.sink(new_event(aggregate_id: aggregate_id,
+                                 type: :billing_details_provided,
+                                 body: { my_event: 'data' },
+                                 created_at: time))
+      expect(last_event[:created_at]).to eq time
+    end
+
+    it 'defaults to now() when no created_at timestamp is supplied' do
+      event_store.sink(new_event(aggregate_id: aggregate_id,
+                                 type: :billing_details_provided,
+                                 body: { my_event: 'data' }))
+      expect(last_event[:created_at]).to be_instance_of(Time)
     end
   end
 end

@@ -8,14 +8,23 @@ module EventSourcery
       WRITE_EVENTS_LUA = <<-EOS
       local events = unpack(ARGV)
 
+      local return_value = 1
       for i=1, #ARGV do
-        // since Redis is single threaded, only one of this function will be
-        // executing at any given time, if that wasn't the case there would be a
-        // race condition where events would get overwritten.
         local id = tonumber(redis.call('hlen', 'events')) + 1
 
         local event = ARGV[i]
         local decoded_event = cjson.decode(event)
+
+        local current_version = redis.call('get', 'aggregate_versions_' .. decoded_event['aggregate_id'])
+        local expected_version = decoded_event['expected_version']
+        if current_version == false then
+          current_version = 0
+        end
+        if expected_version ~= nil and current_version ~= expected_version then
+          return_value = 0
+        end
+        redis.call('set', 'current_version', current_version)
+        redis.call('set', 'expected_version', expected_version)
 
         local version = redis.call('incrby', 'aggregate_versions_' .. decoded_event['aggregate_id'], 1)
         decoded_event['version'] = version
@@ -26,7 +35,7 @@ module EventSourcery
         redis.call('set', 'latest_event_id', id)
         redis.call('publish', 'new_event', id)
       end
-      return 1
+      return return_value
       EOS
 
       def initialize(redis, event_builder: EventSourcery.config.event_builder)
@@ -36,7 +45,7 @@ module EventSourcery
         redis.register_script(:write_events, WRITE_EVENTS_LUA)
       end
 
-      def sink(event_or_events)
+      def sink(event_or_events, expected_version: nil)
         events = Array(event_or_events)
         aggregate_ids = events.map(&:aggregate_id).uniq
         raise AtomicWriteToMultipleAggregatesNotSupported unless aggregate_ids.count == 1
@@ -47,11 +56,15 @@ module EventSourcery
             aggregate_id: event.aggregate_id,
             type: event.type,
             body: event.body,
-            created_at: event.created_at || Time.now
-          }
+            created_at: (event.created_at&.utc || Time.now.utc).iso8601(6).to_s,
+            expected_version: expected_version
+          }.reject { |k, v| v.nil? }
           JSON.dump(event)
         end
-        @redis.run_script(:write_events, argv: events_s)
+        return_value = @redis.run_script(:write_events, argv: events_s)
+        if return_value != 1
+          raise ConcurrencyError
+        end
         true
       end
 
