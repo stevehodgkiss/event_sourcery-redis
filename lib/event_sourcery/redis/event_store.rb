@@ -9,13 +9,13 @@ module EventSourcery
       WRITE_EVENTS_LUA = <<-EOS
       local return_value = 1
       local events = cmsgpack.unpack(KEYS[1])
+      local expected_version = tonumber(KEYS[2])
       for i=1, #events do
         local id = tonumber(redis.call('hlen', 'events')) + 1
 
         local event = events[i]
 
         local current_version = redis.call('get', 'aggregate_versions_' .. event['aggregate_id'])
-        local expected_version = event['expected_version']
         if current_version == false then
           current_version = 0
         end
@@ -52,13 +52,12 @@ module EventSourcery
             aggregate_id: event.aggregate_id,
             type: event.type,
             body: event.body,
-            created_at: (event.created_at&.utc || Time.now.utc).iso8601(6).to_s,
-            expected_version: expected_version
+            created_at: (event.created_at&.utc || Time.now.utc).iso8601(6).to_s
           }.reject { |k, v| v.nil? }
           event
         end
         message = MessagePack.pack(events_s)
-        return_value = @redis.run_script(:write_events, keys: [message])
+        return_value = @redis.run_script(:write_events, keys: [message, expected_version])
         if return_value != 1
           raise ConcurrencyError
         end
