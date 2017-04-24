@@ -12,10 +12,10 @@ module EventSourcery
       for i=1, #events do
         local id = tonumber(redis.call('hlen', 'events')) + 1
 
-        local decoded_event = events[i]
+        local event = events[i]
 
-        local current_version = redis.call('get', 'aggregate_versions_' .. decoded_event['aggregate_id'])
-        local expected_version = decoded_event['expected_version']
+        local current_version = redis.call('get', 'aggregate_versions_' .. event['aggregate_id'])
+        local expected_version = event['expected_version']
         if current_version == false then
           current_version = 0
         end
@@ -23,12 +23,12 @@ module EventSourcery
           return_value = 0
         end
 
-        local version = redis.call('incrby', 'aggregate_versions_' .. decoded_event['aggregate_id'], 1)
-        decoded_event['version'] = version
+        local version = redis.call('incrby', 'aggregate_versions_' .. event['aggregate_id'], 1)
+        event['version'] = version
 
-        redis.call('rpush', 'aggregate_' .. decoded_event['aggregate_id'], id)
-        redis.call('hset', 'events', id, cmsgpack.pack(decoded_event))
-        redis.call('hset', 'latest_event_id_for_type', decoded_event['type'], id)
+        redis.call('rpush', 'aggregate_' .. event['aggregate_id'], id)
+        redis.call('hset', 'events', id, cmsgpack.pack(event))
+        redis.call('hset', 'latest_event_id_for_type', event['type'], id)
         redis.call('set', 'latest_event_id', id)
         redis.call('publish', 'new_event', id)
       end
