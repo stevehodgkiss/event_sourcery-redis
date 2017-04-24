@@ -10,6 +10,7 @@ module EventSourcery
       local return_value = 1
       local events = cmsgpack.unpack(KEYS[1])
       local expected_version = tonumber(KEYS[2])
+
       for i=1, #events do
         local id = tonumber(redis.call('hlen', 'events')) + 1
 
@@ -122,9 +123,9 @@ module EventSourcery
       end
 
       def get_event(event_id)
-        event_json = redis.hget('events', event_id)
-        if event_json
-          parsed_event = MessagePack.unpack(event_json)
+        event_msg = redis.hget('events', event_id)
+        if event_msg
+          parsed_event = MessagePack.unpack(event_msg)
           parsed_event[:id] = event_id
           symbolize_hash(parsed_event)
         end
