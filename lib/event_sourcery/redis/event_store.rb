@@ -8,11 +8,11 @@ module EventSourcery
 
       WRITE_EVENTS_LUA = <<-EOS
       local return_value = 1
-      for i=1, #ARGV do
+      local events = cmsgpack.unpack(KEYS[1])
+      for i=1, #events do
         local id = tonumber(redis.call('hlen', 'events')) + 1
 
-        local event = ARGV[i]
-        local decoded_event = cmsgpack.unpack(event)
+        local decoded_event = events[i]
 
         local current_version = redis.call('get', 'aggregate_versions_' .. decoded_event['aggregate_id'])
         local expected_version = decoded_event['expected_version']
@@ -55,9 +55,10 @@ module EventSourcery
             created_at: (event.created_at&.utc || Time.now.utc).iso8601(6).to_s,
             expected_version: expected_version
           }.reject { |k, v| v.nil? }
-          MessagePack.pack(event)
+          event
         end
-        return_value = @redis.run_script(:write_events, argv: events_s)
+        message = MessagePack.pack(events_s)
+        return_value = @redis.run_script(:write_events, keys: [message])
         if return_value != 1
           raise ConcurrencyError
         end
@@ -126,8 +127,12 @@ module EventSourcery
         if event_json
           parsed_event = MessagePack.unpack(event_json)
           parsed_event[:id] = event_id
-          parsed_event
+          symbolize_hash(parsed_event)
         end
+      end
+
+      def symbolize_hash(hash)
+        Hash[hash.map{ |(k,v)| [k.to_sym, v] }]
       end
     end
   end
