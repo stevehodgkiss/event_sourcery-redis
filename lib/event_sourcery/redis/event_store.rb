@@ -7,8 +7,6 @@ module EventSourcery
       include EventSourcery::EventStore::EachByRange
 
       WRITE_EVENTS_LUA = <<-EOS
-      local events = unpack(ARGV)
-
       local return_value = 1
       for i=1, #ARGV do
         local id = tonumber(redis.call('hlen', 'events')) + 1
