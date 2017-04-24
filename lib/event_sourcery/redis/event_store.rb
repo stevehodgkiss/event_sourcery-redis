@@ -1,4 +1,5 @@
 require 'redis/lua'
+require 'msgpack'
 
 module EventSourcery
   module Redis
@@ -13,7 +14,7 @@ module EventSourcery
         local id = tonumber(redis.call('hlen', 'events')) + 1
 
         local event = ARGV[i]
-        local decoded_event = cjson.decode(event)
+        local decoded_event = cmsgpack.unpack(event)
 
         local current_version = redis.call('get', 'aggregate_versions_' .. decoded_event['aggregate_id'])
         local expected_version = decoded_event['expected_version']
@@ -28,7 +29,7 @@ module EventSourcery
         decoded_event['version'] = version
 
         redis.call('rpush', 'aggregate_' .. decoded_event['aggregate_id'], id)
-        redis.call('hset', 'events', id, cjson.encode(decoded_event))
+        redis.call('hset', 'events', id, cmsgpack.pack(decoded_event))
         redis.call('hset', 'latest_event_id_for_type', decoded_event['type'], id)
         redis.call('set', 'latest_event_id', id)
         redis.call('publish', 'new_event', id)
@@ -56,7 +57,7 @@ module EventSourcery
             created_at: (event.created_at&.utc || Time.now.utc).iso8601(6).to_s,
             expected_version: expected_version
           }.reject { |k, v| v.nil? }
-          JSON.dump(event)
+          MessagePack.pack(event)
         end
         return_value = @redis.run_script(:write_events, argv: events_s)
         if return_value != 1
@@ -125,7 +126,8 @@ module EventSourcery
       def get_event(event_id)
         event_json = redis.hget('events', event_id)
         if event_json
-          parsed_event = JSON.parse(event_json, symbolize_names: true)
+          parsed_event = MessagePack.unpack(event_json)
+          parsed_event.symbolize_keys!
           parsed_event[:id] = event_id
           parsed_event
         end
