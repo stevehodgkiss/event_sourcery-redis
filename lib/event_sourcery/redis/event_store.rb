@@ -125,7 +125,6 @@ module EventSourcery
         event_json = redis.hget('events', event_id)
         if event_json
           parsed_event = MessagePack.unpack(event_json)
-          parsed_event.symbolize_keys!
           parsed_event[:id] = event_id
           parsed_event
         end
