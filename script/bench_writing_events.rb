@@ -1,15 +1,16 @@
 # ❯ be ruby script/bench_writing_events.rb
 # Warming up --------------------------------------
-#    redis event store   284.000  i/100ms
+#    redis event store   304.000  i/100ms
 # Calculating -------------------------------------
-#    redis event store      2.865k (± 3.1%) i/s -     14.484k in   5.060905s
+#    redis event store      3.230k (± 4.9%) i/s -     16.112k in   5.000765s
 # ^ MacBook Pro results
 
 require 'benchmark/ips'
 require 'securerandom'
 require 'event_sourcery/redis'
+require 'hiredis'
 
-redis = Redis.connect(port: ENV['BOXEN_REDIS_PORT'] || 6379)
+redis = Redis.connect(port: ENV['BOXEN_REDIS_PORT'] || 6379, driver: :hiredis)
 event_store = EventSourcery::Redis::EventStore.new(redis)
 
 def new_event
